@@ -1,1 +1,0 @@
-# FONDA_3D_Excavator

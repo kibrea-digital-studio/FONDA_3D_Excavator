@@ -1,0 +1,1436 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>FONDA 350LC - Full 3D Hydraulic Excavator Simulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #334155; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc; touch-action: none; }
+    #canvas-wrap { position: fixed; inset: 0; z-index: 1; touch-action: none; }
+    #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; touch-action: none; display: flex; flex-direction: column; justify-content: space-between; padding: 8px 12px; }
+
+    /* Moderate Slate-Glass Top Bar */
+    .top-bar { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; }
+    .badge-box { pointer-events: auto; display: flex; align-items: center; gap: 8px; background: rgba(30,41,59,0.45); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.20); border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 800; }
+    .brand { font-weight: 900; color: #fbbf24; letter-spacing: 0.8px; }
+    .cam-bar { pointer-events: auto; display: flex; align-items: center; gap: 5px; background: rgba(30,41,59,0.45); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.20); border-radius: 8px; padding: 3px; }
+    .btn { background: rgba(51,65,85,0.55); color: #f8fafc; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 5px 9px; font-size: 12px; font-weight: 800; cursor: pointer; line-height: 1; }
+    .btn:active { background: #f59e0b; color: #09090b; }
+    .btn-cam { background: #f59e0b; color: #09090b; border-color: #fcd34d; font-weight: 900; }
+
+    .status-pill { align-self: center; width: 12px; height: 12px; border-radius: 50%; background: #f59e0b; border: 2px solid #fef3c7; box-shadow: 0 0 10px rgba(245,158,11,0.7); display: none; }
+    .status-pill.dump { background: #10b981; border-color: #d1fae5; box-shadow: 0 0 10px rgba(16,185,129,0.7); }
+
+    /* Compact Symbol-Only Bottom Controls */
+    .bottom-wrap { display: flex; flex-direction: column; align-items: center; width: 100%; }
+    .toggle-hud { pointer-events: auto; background: rgba(30,41,59,0.45); backdrop-filter: blur(6px); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.20); border-radius: 6px; padding: 2px 10px; font-size: 11px; font-weight: 800; margin-bottom: 5px; cursor: pointer; line-height: 1.1; }
+    .controls-row { width: 100%; max-width: 1160px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 6px 2px; }
+
+    .stick-col { pointer-events: auto; display: flex; flex-direction: column; align-items: center; }
+    .joystick-ring { position: relative; width: 104px; height: 104px; border-radius: 50%; background: rgba(30,41,59,0.26); backdrop-filter: blur(4px); border: 1.5px solid rgba(255,255,255,0.32); display: flex; align-items: center; justify-content: center; touch-action: none; cursor: pointer; box-shadow: inset 0 0 14px rgba(15,23,42,0.18); }
+    .cross-h { position: absolute; width: 100%; height: 1px; background: rgba(255,255,255,0.22); pointer-events: none; }
+    .cross-v { position: absolute; height: 100%; width: 1px; background: rgba(255,255,255,0.22); pointer-events: none; }
+    .sym { position: absolute; font-size: 11px; font-weight: 900; color: rgba(255,255,255,0.88); text-shadow: 0 1px 3px rgba(0,0,0,0.65); pointer-events: none; line-height: 1; }
+    .sym-t { top: 5px; left: 50%; transform: translateX(-50%); }
+    .sym-b { bottom: 5px; left: 50%; transform: translateX(-50%); }
+    .sym-l { left: 6px; top: 50%; transform: translateY(-50%); }
+    .sym-r { right: 6px; top: 50%; transform: translateY(-50%); }
+    .nub { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #fcd34d, #d97706); border: 2px solid rgba(255,255,255,0.88); box-shadow: 0 3px 10px rgba(0,0,0,0.42); display: flex; align-items: center; justify-content: center; color: #09090b; font-weight: 900; font-size: 14px; pointer-events: none; }
+
+    /* Center Dual Track Levers (Swapped: Right on Left, Left on Right, Symbol Only) */
+    .tracks-row { pointer-events: auto; display: flex; align-items: flex-end; gap: 16px; }
+    .lever-col { display: flex; flex-direction: column; align-items: center; }
+    .lever-slot { position: relative; width: 36px; height: 110px; border-radius: 18px; background: rgba(30,41,59,0.28); backdrop-filter: blur(4px); border: 1.5px solid rgba(255,255,255,0.32); display: flex; align-items: center; justify-content: center; touch-action: none; cursor: ns-resize; }
+    .lever-line { position: absolute; top: 8px; bottom: 8px; width: 2px; background: rgba(255,255,255,0.22); pointer-events: none; }
+    .lever-arrow-t { position: absolute; top: 4px; font-size: 9px; color: rgba(253,224,71,0.92); pointer-events: none; }
+    .lever-arrow-b { position: absolute; bottom: 4px; font-size: 9px; color: rgba(253,224,71,0.92); pointer-events: none; }
+    .lever-handle { width: 30px; height: 40px; border-radius: 9px; background: linear-gradient(180deg, #fcd34d, #d97706); border: 2px solid rgba(255,255,255,0.88); display: flex; flex-direction: column; gap: 3px; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,0.42); pointer-events: none; }
+    .grip-bar { width: 14px; height: 2px; border-radius: 2px; background: rgba(15,23,42,0.78); }
+
+    @media (max-width: 900px), (max-height: 520px) {
+      .joystick-ring { width: 84px; height: 84px; }
+      .nub { width: 36px; height: 36px; font-size: 12px; }
+      .sym { font-size: 10px; }
+      .lever-slot { width: 32px; height: 94px; }
+      .lever-handle { width: 26px; height: 34px; gap: 2.5px; }
+      .grip-bar { width: 12px; }
+      .tracks-row { gap: 12px; }
+    }
+
+    /* User Control Sizes */
+    body.ctrl-md .joystick-ring { width: 114px; height: 114px; }
+    body.ctrl-md .lever-slot { width: 40px; height: 118px; }
+    body.ctrl-lg .joystick-ring { width: 128px; height: 128px; }
+    body.ctrl-lg .nub { width: 48px; height: 48px; }
+    body.ctrl-lg .lever-slot { width: 44px; height: 128px; }
+    body.hide-signs .sym, body.hide-signs .lever-arrow-t, body.hide-signs .lever-arrow-b { display: none; }
+
+    /* Compact Landscape-Friendly User Control Modal */
+    #ctrl-modal { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: rgba(15,23,42,0.58); backdrop-filter: blur(5px); padding: 10px; pointer-events: auto; }
+    #ctrl-modal.open { display: flex; }
+    .ctrl-card { width: 100%; max-width: 500px; max-height: 88vh; overflow-y: auto; background: rgba(30,41,59,0.96); border: 1px solid rgba(148,163,184,0.45); border-radius: 14px; padding: 14px; color: #f1f5f9; box-shadow: 0 20px 50px rgba(0,0,0,0.45); display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
+    .ctrl-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(148,163,184,0.25); padding-bottom: 8px; font-weight: 800; font-size: 13px; color: #fbbf24; }
+    .ctrl-grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .ctrl-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    @media (max-width: 480px) { .ctrl-grid2 { grid-template-columns: 1fr; } .ctrl-grid3 { grid-template-columns: repeat(2, 1fr); } }
+    .ctrl-box { background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.22); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .ctrl-toggle { background: rgba(15,23,42,0.5); border: 1px solid rgba(148,163,184,0.25); border-radius: 8px; padding: 7px 8px; color: #cbd5e1; font-size: 11px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .ctrl-toggle.on { background: rgba(16,185,129,0.22); border-color: rgba(52,211,153,0.65); color: #d1fae5; }
+    .ctrl-size-btn { padding: 5px; border-radius: 6px; border: 1px solid rgba(148,163,184,0.3); background: rgba(51,65,85,0.6); color: #e2e8f0; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .ctrl-size-btn.active { background: #fbbf24; color: #09090b; border-color: #fde68a; }
+    .ctrl-foot { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid rgba(148,163,184,0.25); padding-top: 8px; }
+
+    /* Integrated Owner Control Panel Modal */
+    #owner-modal { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; background: rgba(15,23,42,0.68); backdrop-filter: blur(6px); padding: 10px; pointer-events: auto; }
+    #owner-modal.open { display: flex; }
+    .owner-card { width: 100%; max-width: 740px; max-height: 92vh; overflow-y: auto; background: rgba(30,41,59,0.98); border: 1px solid rgba(148,163,184,0.45); border-radius: 14px; padding: 14px; color: #f1f5f9; box-shadow: 0 24px 60px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 12px; font-size: 12px; }
+    .owner-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    @media (max-width: 600px) { .owner-stats { grid-template-columns: repeat(2, 1fr); } }
+    .stat-box { background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.25); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+    .stat-val { font-size: 18px; font-weight: 900; font-family: ui-monospace, monospace; }
+    .owner-inp { width: 100%; background: rgba(15,23,42,0.75); border: 1px solid rgba(148,163,184,0.35); border-radius: 8px; padding: 7px 10px; color: #f8fafc; font-size: 12px; outline: none; user-select: text; -webkit-user-select: text; }
+    .owner-inp:focus { border-color: #fbbf24; }
+    .owner-table-wrap { overflow-x: auto; border: 1px solid rgba(148,163,184,0.22); border-radius: 10px; background: rgba(15,23,42,0.45); }
+    table.owner-tbl { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
+    table.owner-tbl th, table.owner-tbl td { padding: 7px 8px; border-bottom: 1px solid rgba(148,163,184,0.16); white-space: nowrap; }
+    table.owner-tbl th { color: #94a3b8; font-weight: 700; background: rgba(15,23,42,0.55); }
+    .st-pill { padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 800; display: inline-block; }
+    .st-approved { background: rgba(16,185,129,0.2); color: #6ee7b7; border: 1px solid rgba(52,211,153,0.4); }
+    .st-pending { background: rgba(245,158,11,0.2); color: #fcd34d; border: 1px solid rgba(251,191,36,0.4); }
+    .st-blocked { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(248,113,113,0.4); }
+    .act-btn { padding: 3px 8px; border-radius: 5px; border: none; font-size: 10px; font-weight: 800; cursor: pointer; margin-left: 4px; }
+    .act-app { background: #10b981; color: #022c22; }
+    .act-blk { background: #ef4444; color: #fff; }
+    .act-del { background: #475569; color: #f8fafc; }
+    .owner-logs { max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+    .log-row { background: rgba(15,23,42,0.5); border: 1px solid rgba(148,163,184,0.18); border-radius: 7px; padding: 5px 8px; font-size: 11px; display: flex; justify-content: space-between; gap: 8px; }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+<script src="/_aistudio-iframe.js?v=1f94f900"></script></head>
+<body>
+  <div id="canvas-wrap"></div>
+
+  <div id="hud">
+    <!-- Compact Moderate Top Bar: Symbol Telemetry + Camera & Theme Switcher -->
+    <div class="top-bar">
+      <div class="badge-box">
+        <span class="brand">FONDA 350LC</span>
+        <span style="opacity:0.35">|</span>
+        <span>⛏ <b id="ui-bucket" style="color:#fbbf24">0%</b></span>
+        <span>⬇ <b id="ui-truck" style="color:#34d399">0%</b></span>
+      </div>
+
+      <div class="cam-bar">
+        <button class="btn" id="btn-cam-left" aria-label="Rotate Camera Left">⟲</button>
+        <button class="btn btn-cam" id="btn-cam-mode" aria-label="Switch Camera">📷</button>
+        <button class="btn" id="btn-cam-right" aria-label="Rotate Camera Right">⟳</button>
+        <button class="btn" id="btn-day-night" aria-label="Switch Sky Theme">☀️</button>
+        <button class="btn" id="btn-user-controls" aria-label="User Control Options" style="color:#6ee7b7">🎛️</button>
+        <button class="btn" id="btn-owner-panel" aria-label="Owner Control Panel" style="color:#fcd34d">🔒</button>
+      </div>
+    </div>
+
+    <div id="ui-status" class="status-pill"></div>
+
+    <!-- Compact Symbol-Only Bottom Controllers -->
+    <div class="bottom-wrap">
+      <button class="toggle-hud" id="btn-toggle-hud" aria-label="Toggle Controls">▾</button>
+
+      <div class="controls-row" id="controls-row">
+        <!-- LEFT STICK -->
+        <div class="stick-col">
+          <div class="joystick-ring" id="left-stick">
+            <div class="cross-h"></div><div class="cross-v"></div>
+            <span class="sym sym-t" id="l-sym-t">▼</span>
+            <span class="sym sym-b" id="l-sym-b">▲</span>
+            <span class="sym sym-l" id="l-sym-l">◁</span>
+            <span class="sym sym-r" id="l-sym-r">▷</span>
+            <div class="nub" id="left-nub">✛</div>
+          </div>
+        </div>
+
+        <!-- CENTER ONLY 2 TRACK LEVERS -->
+        <div class="tracks-row">
+          <div class="lever-col">
+            <div class="lever-slot" id="slot-track-left-pos">
+              <div class="lever-line"></div>
+              <span class="lever-arrow-t">▲</span><span class="lever-arrow-b">▼</span>
+              <div class="lever-handle" id="handle-track-left-pos">
+                <span class="grip-bar"></span><span class="grip-bar"></span><span class="grip-bar"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lever-col">
+            <div class="lever-slot" id="slot-track-right-pos">
+              <div class="lever-line"></div>
+              <span class="lever-arrow-t">▲</span><span class="lever-arrow-b">▼</span>
+              <div class="lever-handle" id="handle-track-right-pos">
+                <span class="grip-bar"></span><span class="grip-bar"></span><span class="grip-bar"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT STICK -->
+        <div class="stick-col">
+          <div class="joystick-ring" id="right-stick">
+            <div class="cross-h"></div><div class="cross-v"></div>
+            <span class="sym sym-t" id="r-sym-t">↙</span>
+            <span class="sym sym-b" id="r-sym-b">↗</span>
+            <span class="sym sym-l" id="r-sym-l">⟳</span>
+            <span class="sym sym-r" id="r-sym-r">⟲</span>
+            <div class="nub" id="right-nub">◈</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Control Options Modal -->
+  <div id="ctrl-modal">
+    <div class="ctrl-card">
+      <div class="ctrl-head">
+        <span>🎛️ ইউজার কন্ট্রোল অপশন (User Controls)</span>
+        <button class="btn" id="btn-close-ctrl">✕</button>
+      </div>
+      <div class="ctrl-grid2">
+        <div class="ctrl-box">
+          <div style="display:flex;justify-content:space-between;font-weight:700;">
+            <span>কন্ট্রোল স্পিড (Sensitivity)</span>
+            <span id="ui-sens-val" style="color:#fbbf24;">1.0x</span>
+          </div>
+          <input type="range" id="inp-sens" min="0.5" max="2.0" step="0.1" value="1.0" style="width:100%;accent-color:#fbbf24;" />
+        </div>
+        <div class="ctrl-box">
+          <span style="font-weight:700;">কন্ট্রোলার সাইজ (Size)</span>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">
+            <button class="ctrl-size-btn active" data-size="sm">ছোট (S)</button>
+            <button class="ctrl-size-btn" data-size="md">মাঝারি (M)</button>
+            <button class="ctrl-size-btn" data-size="lg">বড় (L)</button>
+          </div>
+        </div>
+      </div>
+      <div class="ctrl-grid3">
+        <button class="ctrl-toggle on" data-pref="invertBoom"><span>বুম উল্টো (↕)</span><b>ON</b></button>
+        <button class="ctrl-toggle on" data-pref="invertArm"><span>আর্ম উল্টো (↕)</span><b>ON</b></button>
+        <button class="ctrl-toggle" data-pref="invertBucket"><span>বাকেট উল্টো (↔)</span><b>OFF</b></button>
+        <button class="ctrl-toggle on" data-pref="invertSlew"><span>রোটেশন উল্টো</span><b>ON</b></button>
+        <button class="ctrl-toggle" data-pref="swapSticks"><span>বাম-ডান স্টিক বদল</span><b>OFF</b></button>
+        <button class="ctrl-toggle on" data-pref="swapTracks"><span>চাকা লিভার বদল</span><b>ON</b></button>
+        <button class="ctrl-toggle on" data-pref="showSigns"><span>সাইন চিহ্ন</span><b>ON</b></button>
+        <button class="ctrl-toggle on" id="btn-pref-sound"><span>ইঞ্জিন সাউন্ড</span><b>ON</b></button>
+      </div>
+      <div class="ctrl-foot">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn" id="btn-reset-machine" style="background:rgba(56,189,248,0.22);border-color:rgba(56,189,248,0.5);">↺ মেশিন রিসেট</button>
+          <button class="btn" id="btn-open-owner-from-ctrl" style="background:rgba(245,158,11,0.22);border-color:rgba(251,191,36,0.5);color:#fde68a;">🔒 Owner Control</button>
+        </div>
+        <button class="btn" id="btn-reset-prefs">ডিফল্ট রিসেট</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Integrated Owner Control Panel Modal -->
+  <div id="owner-modal">
+    <div class="owner-card">
+      <div class="ctrl-head">
+        <span>🔒 Owner Control Panel (ইউজার ও লাইসেন্স ম্যানেজমেন্ট)</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span id="owner-conn-badge" style="font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(16,185,129,0.2);color:#6ee7b7;border:1px solid rgba(52,211,153,0.4);">Ready</span>
+          <button class="btn" id="btn-close-owner">✕</button>
+        </div>
+      </div>
+
+      <!-- Owner Login View -->
+      <div id="owner-login-view" style="display:flex;flex-direction:column;gap:10px;max-width:380px;width:100%;margin:6px auto;">
+        <div style="text-align:center;">
+          <div style="font-size:14px;font-weight:800;color:#f8fafc;">Administrator Access Only</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px;">ইউজার Approve / Block / Delete ও WhatsApp সেটিংস কন্ট্রোল করতে PIN দিন</div>
+        </div>
+        <div class="ctrl-box">
+          <label style="font-size:11px;color:#cbd5e1;font-weight:700;">Server URL (অটো-কানেক্ট):</label>
+          <input class="owner-inp" id="owner-api-base" type="text" placeholder="Auto (Current Server)" />
+          <label style="font-size:11px;color:#cbd5e1;font-weight:700;margin-top:4px;">Owner Password / PIN (Default: fonda2026):</label>
+          <input class="owner-inp" id="owner-pin-inp" type="password" value="fonda2026" />
+          <div id="owner-login-err" style="display:none;color:#fca5a5;font-size:11px;background:rgba(239,68,68,0.18);padding:5px 8px;border-radius:6px;"></div>
+          <button class="btn btn-cam" id="btn-owner-login" style="padding:8px;margin-top:4px;">🔓 Log In to Owner Control Panel</button>
+        </div>
+      </div>
+
+      <!-- Owner Dashboard View -->
+      <div id="owner-dash-view" style="display:none;flex-direction:column;gap:10px;">
+        <div class="owner-stats">
+          <div class="stat-box"><span style="font-size:10px;color:#94a3b8;">Total Devices</span><span class="stat-val" id="own-st-total">0</span></div>
+          <div class="stat-box"><span style="font-size:10px;color:#94a3b8;">Approved</span><span class="stat-val" id="own-st-app" style="color:#34d399;">0</span></div>
+          <div class="stat-box"><span style="font-size:10px;color:#94a3b8;">Pending</span><span class="stat-val" id="own-st-pend" style="color:#fbbf24;">0</span></div>
+          <div class="stat-box"><span style="font-size:10px;color:#94a3b8;">Soil Excavated</span><span class="stat-val" id="own-st-soil" style="color:#38bdf8;">0t</span></div>
+        </div>
+
+        <!-- WhatsApp & Offline Days Settings -->
+        <div class="ctrl-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#e2e8f0;">
+            <span>📞 WhatsApp Contact &amp; License Settings</span>
+            <span id="own-save-msg" style="font-size:10px;color:#34d399;"></span>
+          </div>
+          <div class="ctrl-grid2">
+            <div>
+              <label style="font-size:10px;color:#94a3b8;">WhatsApp Number:</label>
+              <div style="display:flex;gap:5px;margin-top:3px;">
+                <input class="owner-inp" id="own-wa-inp" type="text" value="+6583951544" />
+                <a class="btn" id="own-wa-test" href="https://wa.me/6583951544" target="_blank" rel="noopener noreferrer" style="background:#059669;border-color:#10b981;text-decoration:none;white-space:nowrap;">Test</a>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:10px;color:#94a3b8;">Offline Duration:</label>
+              <div style="display:flex;gap:5px;margin-top:3px;">
+                <select class="owner-inp" id="own-days-sel">
+                  <option value="7">7 Days</option>
+                  <option value="14">14 Days</option>
+                  <option value="30">30 Days</option>
+                </select>
+                <button class="btn btn-cam" id="btn-own-save" style="white-space:nowrap;">💾 Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Registered Users / Devices Table -->
+        <div class="ctrl-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+            <span style="font-weight:800;">📱 Registered Users / Devices (<span id="own-user-count">0</span>)</span>
+            <div style="display:flex;gap:5px;align-items:center;">
+              <input class="owner-inp" id="own-add-id" type="text" placeholder="Add Device ID..." style="width:140px;padding:4px 7px;font-size:11px;" />
+              <button class="btn" id="btn-own-add-dev" style="padding:4px 8px;font-size:11px;background:#0284c7;">+ Add</button>
+              <button class="btn" id="btn-own-refresh" style="padding:4px 8px;font-size:11px;">🔄 Refresh</button>
+            </div>
+          </div>
+          <div class="owner-table-wrap">
+            <table class="owner-tbl">
+              <thead>
+                <tr><th>Device ID</th><th>Model</th><th>Status</th><th>Expiry</th><th style="text-align:right;">Actions</th></tr>
+              </thead>
+              <tbody id="own-users-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Activity Stream -->
+        <div class="ctrl-box">
+          <span style="font-weight:800;">📊 Live Activity Stream</span>
+          <div class="owner-logs" id="own-logs-box"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    // --- 1. AUDIO SYNTHESIS (PROCEDURAL DIESEL ENGINE) ---
+    let audioCtx = null, engineOsc = null, engineGain = null;
+    function initAudio() {
+      if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      audioCtx = new Ctx();
+      engineOsc = audioCtx.createOscillator();
+      engineOsc.type = 'sawtooth';
+      engineOsc.frequency.value = 34;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 140;
+      engineGain = audioCtx.createGain();
+      engineGain.gain.value = prefs.soundOn ? 0.08 : 0;
+      engineOsc.connect(filter);
+      filter.connect(engineGain);
+      engineGain.connect(audioCtx.destination);
+      engineOsc.start();
+    }
+
+    // --- 2. PROCEDURAL TEXTURES (MATCHED TO REFERENCE MODEL) ---
+    function createYellowPaintTex(maxA = 8) {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#e29a22'; ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 6500; i++) {
+        ctx.fillStyle = Math.random() > 0.35 ? 'rgba(95,58,12,0.09)' : 'rgba(255,220,145,0.08)';
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, Math.random() * 2.4 + 0.5, Math.random() * 2.4 + 0.5);
+      }
+      for (let i = 0; i < 45; i++) {
+        ctx.fillStyle = 'rgba(72,46,14,0.07)';
+        ctx.fillRect(Math.random() * 512, Math.random() * 440, 2, 18 + Math.random() * 55);
+      }
+      ctx.strokeStyle = 'rgba(40,26,8,0.28)'; ctx.lineWidth = 3; ctx.strokeRect(4, 4, 504, 504);
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxA;
+      return tex;
+    }
+
+    function createWeatheredSteelTex(maxA = 8) {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#534e47'; ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 8500; i++) {
+        const r = Math.random();
+        ctx.fillStyle = r < 0.35 ? 'rgba(165,168,174,0.14)' : (r < 0.7 ? 'rgba(42,36,30,0.18)' : 'rgba(110,82,55,0.14)');
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 6, 1 + Math.random() * 2);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxA;
+      return tex;
+    }
+
+    function createYellowLouversTex(maxA = 8) {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#e29a22'; ctx.fillRect(0, 0, 512, 256);
+      ctx.strokeStyle = 'rgba(35,25,10,0.55)'; ctx.lineWidth = 4; ctx.strokeRect(6, 6, 500, 244);
+      ctx.beginPath(); ctx.moveTo(256, 6); ctx.lineTo(256, 250); ctx.stroke();
+      for (const colX of [24, 276]) {
+        for (let y = 26; y < 224; y += 16) {
+          ctx.fillStyle = '#181a1f'; ctx.fillRect(colX, y, 212, 8);
+          ctx.fillStyle = '#f5ba52'; ctx.fillRect(colX, y + 8, 212, 2);
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxA;
+      return tex;
+    }
+
+    function createDarkLouversTex(maxA = 4) {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#24272d'; ctx.fillRect(0, 0, 512, 256);
+      for (let y = 18; y < 238; y += 16) {
+        ctx.fillStyle = '#0e1014'; ctx.fillRect(20, y, 472, 8);
+        ctx.fillStyle = '#3f4551'; ctx.fillRect(20, y + 8, 472, 3);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxA;
+      return tex;
+    }
+
+    function createSafety93Tex(maxA = 8) {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#f3f4f6'; ctx.fillRect(0, 0, 256, 256);
+      ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 10; ctx.strokeRect(8, 8, 240, 240);
+      ctx.fillStyle = '#111827'; ctx.fillRect(16, 16, 224, 54);
+      ctx.fillStyle = '#facc15'; ctx.font = 'bold 28px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Lwa', 128, 52);
+      ctx.fillStyle = '#111827'; ctx.font = '900 108px sans-serif'; ctx.fillText('93', 128, 178);
+      ctx.font = 'bold 24px sans-serif'; ctx.fillText('dB', 198, 224);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxA;
+      return tex;
+    }
+
+    function createDecalTex(isRear = false, maxA = 8) {
+      const c = document.createElement('canvas');
+      c.width = 1024; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#e29a22'; ctx.fillRect(0,0,1024,256);
+      ctx.fillStyle = '#14161b';
+      for (let x = -256; x < 1280; x += 48) {
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+24,0); ctx.lineTo(x-4,26); ctx.lineTo(x-28,26); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x,230); ctx.lineTo(x+24,230); ctx.lineTo(x-4,256); ctx.lineTo(x-28,256); ctx.fill();
+      }
+      ctx.fillStyle = '#181a1f'; ctx.fillRect(32,34,960,188);
+      ctx.strokeStyle = '#d4d4d8'; ctx.lineWidth = 4; ctx.strokeRect(32,34,960,188);
+      ctx.fillStyle = '#f59e0b'; ctx.font = '900 108px Impact, Arial Black, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('FONDA 350LC', 512, isRear ? 128 : 114);
+      if (!isRear) {
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 28px sans-serif';
+        ctx.fillText('HEAVY HYDRAULIC EXCAVATOR', 512, 178);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxA;
+      return tex;
+    }
+
+    function createSoilTex(maxA = 8) {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#7c5c46'; ctx.fillRect(0,0,512,512);
+      for (let i = 0; i < 16000; i++) {
+        const s = Math.floor(Math.random()*54)-27;
+        ctx.fillStyle = `rgb(${124+s},${92+s},${70+s/2})`;
+        ctx.fillRect(Math.random()*512, Math.random()*512, 2.5, 2.5);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(12,12);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxA;
+      return tex;
+    }
+
+    // --- 3. SCENE, RENDERER, SKY DOME & MODERATE LIGHTING ---
+    const isSoftwareGl = (() => {
+      const gl = document.createElement('canvas').getContext('webgl2');
+      if (!gl) return true;
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const gpu = String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+    })();
+
+    const wrap = document.getElementById('canvas-wrap');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xdbeafe);
+    scene.fog = new THREE.FogExp2(0xdbeafe, 0.0085);
+
+    const initAspect = window.innerWidth / Math.max(window.innerHeight, 1);
+    const camera = new THREE.PerspectiveCamera(initAspect > 1.65 ? 46 : 50, initAspect, 0.2, 250);
+    const renderer = new THREE.WebGLRenderer({ antialias: !isSoftwareGl, powerPreference: 'high-performance' });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.22;
+    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = !isSoftwareGl;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    wrap.appendChild(renderer.domElement);
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+
+    // Smooth Atmospheric Gradient Sky Dome
+    const skyUniforms = {
+      topColor: { value: new THREE.Color(0x5b9fe8) },
+      bottomColor: { value: new THREE.Color(0xdbeafe) },
+    };
+    const skyDome = new THREE.Mesh(
+      new THREE.SphereGeometry(165, 32, 20),
+      new THREE.ShaderMaterial({
+        uniforms: skyUniforms,
+        side: THREE.BackSide,
+        depthWrite: false,
+        vertexShader: 'varying vec3 vW; void main(){ vW = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'uniform vec3 topColor; uniform vec3 bottomColor; varying vec3 vW; void main(){ float h = clamp(normalize(vW).y * 1.45, 0.0, 1.0); gl_FragColor = vec4(mix(bottomColor, topColor, pow(h, 0.65)), 1.0); }'
+      })
+    );
+    scene.add(skyDome);
+
+    const hemiLight = new THREE.HemisphereLight(0xfef3c7, 0x64748b, 1.45);
+    scene.add(hemiLight);
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 2.6);
+    sunLight.position.set(25, 35, 18);
+    sunLight.castShadow = !isSoftwareGl;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.camera.left = -25; sunLight.shadow.camera.right = 25;
+    sunLight.shadow.camera.top = 25; sunLight.shadow.camera.bottom = -25;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+    const fillLight = new THREE.DirectionalLight(0xcbd5e1, 0.78);
+    fillLight.position.set(-22, 18, -20);
+    scene.add(fillLight);
+
+    // --- 4. DEFORMABLE TERRAIN PIT & SAFETY CONES ---
+    const groundGeom = new THREE.PlaneGeometry(120, 120, 90, 90);
+    groundGeom.rotateX(-Math.PI / 2);
+    const gPos = groundGeom.attributes.position;
+    const gArr = gPos.array;
+    for (let i = 0; i < gPos.count; i++) {
+      const x = gArr[i*3], z = gArr[i*3+2];
+      const dT = Math.sqrt((x*0.7)**2 + ((z+6)*0.5)**2);
+      if (dT < 9.0) {
+        gArr[i*3+1] = -Math.cos((dT/9)*Math.PI/2)*2.2 + (Math.sin(x*1.5)+Math.cos(z*1.5))*0.12;
+      } else {
+        const dC = Math.sqrt(x*x+z*z);
+        gArr[i*3+1] = dC > 30 ? Math.sin(x*0.1)*Math.cos(z*0.1)*3.5 : (Math.sin(x*0.4)+Math.cos(z*0.4))*0.08;
+      }
+    }
+    groundGeom.computeVertexNormals();
+    const soilTex = createSoilTex(maxAniso);
+    const groundMesh = new THREE.Mesh(groundGeom, new THREE.MeshStandardMaterial({ map: soilTex, roughness: 0.92 }));
+    groundMesh.receiveShadow = true;
+    scene.add(groundMesh);
+
+    const coneMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.45 });
+    const coneStripeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
+    [[-9.5, -1.5], [-10.5, -10.5], [0, -16], [10.5, -10.5], [10.5, -1.5]].forEach(([cx, cz]) => {
+      const cg = new THREE.Group();
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.06, 0.45), coneMat);
+      base.position.y = 0.03; cg.add(base);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.65, 12), coneMat);
+      cone.position.y = 0.35; cone.castShadow = true; cg.add(cone);
+      const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.12, 0.16, 12), coneStripeMat);
+      stripe.position.y = 0.38; cg.add(stripe);
+      cg.position.set(cx, 0, cz);
+      scene.add(cg);
+    });
+
+    function deformGround(hx, hz, depth) {
+      let ch = false;
+      for (let i = 0; i < gPos.count; i++) {
+        const d = Math.hypot(gArr[i*3]-hx, gArr[i*3+2]-hz);
+        if (d < 1.6) {
+          gArr[i*3+1] = Math.max(-4.5, gArr[i*3+1] - depth*(1 - d/1.6));
+          ch = true;
+        }
+      }
+      if (ch) { gPos.needsUpdate = true; groundGeom.computeVertexNormals(); }
+    }
+
+    // --- 5. PHOTO-MATCHED REALISTIC 3D EXCAVATOR RIG ---
+    const yellowMat = new THREE.MeshPhysicalMaterial({ map: createYellowPaintTex(maxAniso), color: 0xffffff, roughness: 0.42, metalness: 0.28, clearcoat: 0.25, clearcoatRoughness: 0.38 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x22252b, roughness: 0.62, metalness: 0.68 });
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0x313640, roughness: 0.48, metalness: 0.76 });
+    const bucketSteelMat = new THREE.MeshStandardMaterial({ map: createWeatheredSteelTex(maxAniso), color: 0xffffff, roughness: 0.68, metalness: 0.72 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.08, metalness: 0.96 });
+    const hoseMat = new THREE.MeshStandardMaterial({ color: 0x111318, roughness: 0.88, metalness: 0.08 });
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x8ea4b8, transmission: isSoftwareGl ? 0 : 0.68, transparent: true, opacity: isSoftwareGl ? 0.42 : 0.88, roughness: 0.14, depthWrite: false });
+    const sideLouverMat = new THREE.MeshStandardMaterial({ map: createYellowLouversTex(maxAniso), roughness: 0.46, metalness: 0.32, polygonOffset: true, polygonOffsetFactor: -1 });
+    const topLouverMat = new THREE.MeshStandardMaterial({ map: createDarkLouversTex(maxAniso), roughness: 0.65, metalness: 0.55 });
+    const rearDecalMat = new THREE.MeshStandardMaterial({ map: createDecalTex(true, maxAniso), roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -1 });
+    const safetyStickerMat = new THREE.MeshStandardMaterial({ map: createSafety93Tex(maxAniso), roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -1 });
+
+    const excRoot = new THREE.Group();
+    excRoot.position.set(0, 0, 3.5);
+    scene.add(excRoot);
+
+    const undercarriage = new THREE.Group();
+    excRoot.add(undercarriage);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(1.02, 1.12, 0.42, 24), darkMat);
+    hub.position.y = 0.56; hub.castShadow = true; undercarriage.add(hub);
+    [0.58,-0.58,Math.PI-0.58,Math.PI+0.58].forEach(a => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.34, 1.92), darkMat);
+      leg.position.set(Math.sin(a)*0.86, 0.52, Math.cos(a)*0.74); leg.rotation.y = a; undercarriage.add(leg);
+    });
+    const slewBase = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.0, 0.24, 32), gunMat);
+    slewBase.position.y = 0.86; undercarriage.add(slewBase);
+
+    function makeTrack(xOff) {
+      const g = new THREE.Group(); g.position.set(xOff, 0.46, 0);
+      const s = new THREE.Shape();
+      s.moveTo(-2.02,-0.44); s.lineTo(2.02,-0.44); s.absarc(2.02,0,0.44,-Math.PI/2,Math.PI/2,false);
+      s.lineTo(-2.02,0.44); s.absarc(-2.02,0,0.44,Math.PI/2,-Math.PI/2,false);
+      const bGeom = new THREE.ExtrudeGeometry(s, { depth: 0.72, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2 });
+      bGeom.translate(0,0,-0.36); bGeom.rotateY(Math.PI/2);
+      const belt = new THREE.Mesh(bGeom, darkMat); belt.castShadow = true; g.add(belt);
+
+      // Boarding Step / U-Frame Ladder Rail on Outer Track Beam
+      const sign = xOff < 0 ? -1 : 1;
+      for (const lz of [-0.26, 0.26]) {
+        const stile = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.88, 8), gunMat);
+        stile.position.set(sign * 0.43, 0.14, lz); g.add(stile);
+      }
+      for (const ly of [-0.20, 0.16, 0.56]) {
+        const rung = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.035, 0.54), gunMat);
+        rung.position.set(sign * 0.43, ly, 0); g.add(rung);
+      }
+
+      const shoeGeom = new THREE.BoxGeometry(0.76, 0.05, 0.20);
+      const pts = [];
+      for (let z = -1.95; z <= 1.95; z += 0.26) { pts.push([0.46,z,0], [-0.46,z,0]); }
+      for (let a = -1.2; a <= 1.2; a += 0.45) {
+        pts.push([Math.sin(a)*0.46, 2.02+Math.cos(a)*0.46, Math.PI/2-a], [Math.sin(a)*0.46, -2.02-Math.cos(a)*0.46, -Math.PI/2+a]);
+      }
+      const inst = new THREE.InstancedMesh(shoeGeom, gunMat, pts.length);
+      const d = new THREE.Object3D();
+      pts.forEach((p, idx) => { d.position.set(0,p[0],p[1]); d.rotation.set(p[2],0,0); d.updateMatrix(); inst.setMatrixAt(idx, d.matrix); });
+      inst.computeBoundingSphere(); g.add(inst);
+      const spr = new THREE.CylinderGeometry(0.38,0.38,0.84,18); spr.rotateZ(Math.PI/2);
+      const rS = new THREE.Mesh(spr, gunMat); rS.position.set(0,0,2.02); g.add(rS);
+      const fI = new THREE.Mesh(spr, darkMat); fI.position.set(0,0,-2.02); g.add(fI);
+      const rGeom = new THREE.CylinderGeometry(0.14,0.14,0.84,12); rGeom.rotateZ(Math.PI/2);
+      for (let z = -1.55; z <= 1.55; z += 0.44) { const rl = new THREE.Mesh(rGeom, gunMat); rl.position.set(0,-0.27,z); g.add(rl); }
+      return g;
+    }
+    undercarriage.add(makeTrack(-1.42));
+    undercarriage.add(makeTrack(1.42));
+
+    const cabinUpper = new THREE.Group(); cabinUpper.position.y = 1.06; undercarriage.add(cabinUpper);
+    const deckDarkLip = new THREE.Mesh(new THREE.BoxGeometry(2.74,0.12,3.85), darkMat); deckDarkLip.position.set(0,0.06,0.25); cabinUpper.add(deckDarkLip);
+    const deckBase = new THREE.Mesh(new THREE.BoxGeometry(2.78,0.16,3.92), yellowMat); deckBase.position.set(0,0.20,0.25); deckBase.castShadow = true; cabinUpper.add(deckBase);
+    const rearEngine = new THREE.Mesh(new THREE.BoxGeometry(2.74,0.96,1.95), yellowMat); rearEngine.position.set(0,0.76,1.18); rearEngine.castShadow = true; cabinUpper.add(rearEngine);
+    const rightPump = new THREE.Mesh(new THREE.BoxGeometry(0.92,0.56,1.45), yellowMat); rightPump.position.set(0.91,0.56,-0.52); rightPump.castShadow = true; cabinUpper.add(rightPump);
+
+    const cwS = new THREE.Shape();
+    cwS.moveTo(-1.37,0); cwS.lineTo(1.37,0); cwS.lineTo(1.37,0.42); cwS.quadraticCurveTo(1.26,0.94,0.55,1.00);
+    cwS.lineTo(-0.55,1.00); cwS.quadraticCurveTo(-1.26,0.94,-1.37,0.42); cwS.closePath();
+    const cwG = new THREE.ExtrudeGeometry(cwS, { depth: 0.96, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.05, bevelSegments: 3 });
+    cwG.rotateX(-Math.PI/2); cwG.rotateY(Math.PI);
+    const cwMesh = new THREE.Mesh(cwG, yellowMat); cwMesh.position.set(0,0.26,1.65); cwMesh.castShadow = true; cabinUpper.add(cwMesh);
+
+    const rDec = new THREE.Mesh(new THREE.PlaneGeometry(2.05,0.50), rearDecalMat); rDec.position.set(0,0.74,2.66); cabinUpper.add(rDec);
+    const lLouv = new THREE.Mesh(new THREE.PlaneGeometry(1.55,0.78), sideLouverMat); lLouv.position.set(-1.375,0.76,1.18); lLouv.rotation.y = -Math.PI/2; cabinUpper.add(lLouv);
+    const rLouv = new THREE.Mesh(new THREE.PlaneGeometry(1.55,0.78), sideLouverMat); rLouv.position.set(1.375,0.76,1.18); rLouv.rotation.y = Math.PI/2; cabinUpper.add(rLouv);
+
+    // Dark Raised Upper Radiator Cowl & J-Bend Exhaust Stack behind Cabin
+    const topCowl = new THREE.Mesh(new THREE.BoxGeometry(2.15,0.28,1.55), darkMat); topCowl.position.set(0.18,1.38,1.18); topCowl.castShadow = true; cabinUpper.add(topCowl);
+    const topGr = new THREE.Mesh(new THREE.BoxGeometry(1.65,0.04,1.15), topLouverMat); topGr.position.set(0.18,1.53,1.18); cabinUpper.add(topGr);
+    const exCurve = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.35,1.62,0.72), new THREE.Vector3(-0.35,1.98,0.74), new THREE.Vector3(-0.35,2.08,0.90)]);
+    const exPipe = new THREE.Mesh(new THREE.TubeGeometry(exCurve, 12, 0.062, 12, false), gunMat); exPipe.castShadow = true; cabinUpper.add(exPipe);
+
+    // Right-Side Yellow Safety Handrails & Side Mirror
+    [[1.30,-1.10],[1.30,-0.50],[1.30,0.10],[0.68,-1.10]].forEach(([rx,rz]) => {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.72,8), yellowMat); p.position.set(rx, 1.20, rz); cabinUpper.add(p);
+    });
+    const rTop = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,1.24,8), yellowMat); rTop.rotation.x = Math.PI/2; rTop.position.set(1.30,1.56,-0.50); cabinUpper.add(rTop);
+    const rMid = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,1.24,8), yellowMat); rMid.rotation.x = Math.PI/2; rMid.position.set(1.30,1.22,-0.50); cabinUpper.add(rMid);
+    const rFront = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.64,8), yellowMat); rFront.rotation.z = Math.PI/2; rFront.position.set(0.99,1.56,-1.10); cabinUpper.add(rFront);
+
+    // Dark Charcoal ROPS/FOPS Operator Cabin with Steel Protective Guard Cage
+    const cab = new THREE.Group(); cab.position.set(-0.78,0.28,-0.55); cabinUpper.add(cab);
+    const cabFloor = new THREE.Mesh(new THREE.BoxGeometry(1.08,0.12,1.66), darkMat); cabFloor.position.y = 0.06; cab.add(cabFloor);
+    [[-0.48,-0.68],[0.48,-0.68]].forEach(([px,pz]) => {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(0.09,1.62,0.10), darkMat); p.position.set(px,0.86,pz); p.rotation.x = -0.14; cab.add(p);
+    });
+    const doorLower = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.56,1.48), darkMat); doorLower.position.set(-0.49,0.36,0); cab.add(doorLower);
+    const doorPost = new THREE.Mesh(new THREE.BoxGeometry(0.07,1.56,0.09), darkMat); doorPost.position.set(-0.49,0.85,0.10); cab.add(doorPost);
+    const cabRear = new THREE.Mesh(new THREE.BoxGeometry(1.06,1.54,0.09), darkMat); cabRear.position.set(0,0.84,0.76); cab.add(cabRear);
+    const cabRoof = new THREE.Mesh(new THREE.BoxGeometry(1.12,0.11,1.58), darkMat); cabRoof.position.set(0,1.64,0.06); cabRoof.castShadow = true; cab.add(cabRoof);
+    const wf = new THREE.Mesh(new THREE.PlaneGeometry(0.90,1.42), glassMat); wf.position.set(0,0.88,-0.69); wf.rotation.y = Math.PI; wf.rotation.x = 0.14; cab.add(wf);
+    const lg = new THREE.Mesh(new THREE.PlaneGeometry(1.36,0.92), glassMat); lg.position.set(-0.50,1.12,0.02); lg.rotation.y = -Math.PI/2; cab.add(lg);
+
+    // Signature Front & Roof FOPS Rock-Guard Grille Bars
+    for (let gx = -0.38; gx <= 0.381; gx += 0.125) {
+      const vb = new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,1.48,6), darkMat);
+      vb.position.set(gx, 0.88, -0.77); vb.rotation.x = -0.14; cab.add(vb);
+    }
+    for (let gy = 0.28; gy <= 1.48; gy += 0.30) {
+      const hb = new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.94,6), darkMat);
+      hb.rotation.z = Math.PI/2; hb.position.set(0, gy, -0.77 + (gy - 0.88)*0.14); cab.add(hb);
+    }
+    for (let gx = -0.42; gx <= 0.421; gx += 0.14) {
+      const rb = new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,1.38,6), darkMat);
+      rb.rotation.x = Math.PI/2; rb.position.set(gx, 1.72, -0.02); cab.add(rb);
+    }
+
+    // Curved Swan-Neck Boom
+    const boomJoint = new THREE.Group(); boomJoint.position.set(0.22, 0.68, -0.58); cabinUpper.add(boomJoint);
+    const boomS = new THREE.Shape();
+    boomS.moveTo(-0.22,-0.26); boomS.lineTo(1.85,0.65); boomS.quadraticCurveTo(2.45,0.92,3.05,0.72);
+    boomS.lineTo(4.85,0.16); boomS.lineTo(4.85,0.50); boomS.lineTo(3.12,1.24);
+    boomS.quadraticCurveTo(2.40,1.54,1.65,1.18); boomS.lineTo(-0.20,0.24); boomS.closePath();
+    const boomG = new THREE.ExtrudeGeometry(boomS, { depth: 0.44, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.025, bevelSegments: 2 });
+    boomG.translate(0,0,-0.22); boomG.rotateY(Math.PI/2);
+    const boomMesh = new THREE.Mesh(boomG, yellowMat); boomMesh.castShadow = true; boomJoint.add(boomMesh);
+
+    for (const side of [-1, 1]) {
+      const st1 = new THREE.Mesh(new THREE.PlaneGeometry(0.28,0.28), safetyStickerMat);
+      st1.position.set(side*0.252, 0.72, -1.15); st1.rotation.y = side*(Math.PI/2); boomJoint.add(st1);
+    }
+    for (const hx of [-0.14, 0.14]) {
+      const hc = new THREE.CatmullRomCurve3([new THREE.Vector3(hx,0,0.25), new THREE.Vector3(hx,0.72,-0.55), new THREE.Vector3(hx,1.38,-2.35), new THREE.Vector3(hx,0.66,-4.45)]);
+      boomJoint.add(new THREE.Mesh(new THREE.TubeGeometry(hc, 24, 0.025, 8, false), hoseMat));
+    }
+
+    const boomCyl = new THREE.Group(); boomCyl.position.set(0,0.15,-0.55); boomJoint.add(boomCyl);
+    for (const xs of [-0.34, 0.34]) {
+      const cb = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,1.55,14), darkMat);
+      cb.rotation.x = Math.PI/2 - 0.32; cb.position.set(xs,0.12,-0.45); boomCyl.add(cb);
+      const cr = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,1.45,14), chromeMat);
+      cr.rotation.x = Math.PI/2 - 0.32; cr.position.set(xs,0.42,-1.35); boomCyl.add(cr);
+    }
+
+    // Top-Mounted Arm/Stick Hydraulic Cylinder
+    const armCyl = new THREE.Group(); armCyl.position.set(0, 1.48, -2.35); boomJoint.add(armCyl);
+    const acb = new THREE.Mesh(new THREE.CylinderGeometry(0.105,0.105,1.68,14), darkMat); acb.rotation.x = Math.PI/2 + 0.24; armCyl.add(acb);
+    const acr = new THREE.Mesh(new THREE.CylinderGeometry(0.062,0.062,1.62,14), chromeMat); acr.rotation.x = Math.PI/2 + 0.24; acr.position.set(0,-0.28,-1.28); armCyl.add(acr);
+
+    // Tapered Dipper Arm
+    const armJoint = new THREE.Group(); armJoint.position.set(0, 0.32, -4.8); boomJoint.add(armJoint);
+    const armS = new THREE.Shape();
+    armS.moveTo(-0.38,0.05); armS.lineTo(0.25,-0.24); armS.lineTo(3.25,-0.10);
+    armS.lineTo(3.25,0.18); armS.lineTo(0.20,0.60); armS.lineTo(-0.38,0.45); armS.closePath();
+    const armG = new THREE.ExtrudeGeometry(armS, { depth: 0.36, bevelEnabled: true, bevelThickness: 0.025, bevelSize: 0.02, bevelSegments: 2 });
+    armG.translate(0,0,-0.18); armG.rotateY(Math.PI/2);
+    const armMesh = new THREE.Mesh(armG, yellowMat); armMesh.castShadow = true; armJoint.add(armMesh);
+
+    const bCyl = new THREE.Group(); bCyl.position.set(0, 0.54, -0.78); armJoint.add(bCyl);
+    const bcb = new THREE.Mesh(new THREE.CylinderGeometry(0.088,0.088,1.42,14), darkMat); bcb.rotation.x = Math.PI/2 + 0.12; bCyl.add(bcb);
+    const bcr = new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,1.32,14), chromeMat); bcr.rotation.x = Math.PI/2 + 0.12; bcr.position.set(0,-0.12,-1.02); bCyl.add(bcr);
+
+    // Photo-Accurate Flipped Golden Yellow Rock Bucket (Backhoe Facing +Z Toward Cabin)
+    const bucketJoint = new THREE.Group(); bucketJoint.position.set(0, 0.05, -3.22); armJoint.add(bucketJoint);
+    const toothYellowMat = new THREE.MeshPhysicalMaterial({ color: 0xe8a428, roughness: 0.36, metalness: 0.38, clearcoat: 0.2 });
+
+    const torqueTube = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.96, 18), yellowMat);
+    torqueTube.rotation.z = Math.PI/2; torqueTube.position.set(0, 0.04, -0.06); torqueTube.castShadow = true; bucketJoint.add(torqueTube);
+    const headBeam = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.14, 0.36), yellowMat);
+    headBeam.position.set(0, 0.04, -0.08); bucketJoint.add(headBeam);
+
+    for (const xOff of [-0.17, 0.17]) {
+      const lug = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.42, 0.44), yellowMat);
+      lug.position.set(xOff, 0.12, 0.02); lug.rotation.x = 0.25; lug.castShadow = true; bucketJoint.add(lug);
+      const mc = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.125, 0.085, 18), yellowMat);
+      mc.rotation.z = Math.PI/2; bucketJoint.add(mc); mc.position.x = xOff;
+      const tc = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.115, 0.085, 18), yellowMat);
+      tc.rotation.z = Math.PI/2; tc.position.set(xOff, 0.26, 0.24); bucketJoint.add(tc);
+    }
+    const tipPin = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.48, 14), chromeMat);
+    tipPin.rotation.z = Math.PI/2; tipPin.position.set(0, 0.26, 0.24); bucketJoint.add(tipPin);
+    const dogBone = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.42), gunMat);
+    dogBone.position.set(0, 0.34, 0.12); dogBone.rotation.x = -0.55; bucketJoint.add(dogBone);
+
+    // Curved Back/Belly Shell with rotateY(-PI/2) so mouth & teeth face +Z toward cabin
+    const bellyS = new THREE.Shape();
+    bellyS.moveTo(-0.24, 0.08); bellyS.bezierCurveTo(-0.82, -0.05, -0.84, -0.68, -0.22, -0.86);
+    bellyS.lineTo(0.24, -0.86); bellyS.lineTo(0.24, -0.78); bellyS.lineTo(-0.20, -0.78);
+    bellyS.bezierCurveTo(-0.72, -0.62, -0.70, -0.10, -0.18, 0.02); bellyS.closePath();
+    const bellyG = new THREE.ExtrudeGeometry(bellyS, { depth: 0.96, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2, curveSegments: 22 });
+    bellyG.translate(0, 0, -0.48); bellyG.rotateY(-Math.PI/2);
+    const bellyM = new THREE.Mesh(bellyG, yellowMat); bellyM.castShadow = true; bucketJoint.add(bellyM);
+
+    const cheekS = new THREE.Shape();
+    cheekS.moveTo(-0.24, 0.10); cheekS.bezierCurveTo(-0.82, -0.05, -0.84, -0.68, -0.22, -0.86);
+    cheekS.lineTo(0.24, -0.86); cheekS.lineTo(0.18, -0.42); cheekS.lineTo(0.12, 0.08); cheekS.closePath();
+    const cheekG = new THREE.ExtrudeGeometry(cheekS, { depth: 0.055, bevelEnabled: true, bevelThickness: 0.014, bevelSize: 0.014, bevelSegments: 2, curveSegments: 18 });
+    cheekG.translate(0, 0, -0.0275); cheekG.rotateY(-Math.PI/2);
+    for (const side of [-1, 1]) {
+      const ck = new THREE.Mesh(cheekG, yellowMat); ck.position.set(side*0.49, 0, 0); ck.castShadow = true; bucketJoint.add(ck);
+      const swb = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.09, 0.44), yellowMat);
+      swb.position.set(side*0.525, -0.66, -0.34); swb.rotation.x = 0.48; bucketJoint.add(swb);
+      const sc = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.40, 0.15), yellowMat);
+      sc.position.set(side*0.52, -0.62, 0.22); sc.rotation.x = -0.22; sc.castShadow = true; bucketJoint.add(sc);
+      for (const [by, bz] of [[-0.50, 0.19], [-0.62, 0.21], [-0.74, 0.23]]) {
+        const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.095, 6), toothYellowMat);
+        bolt.rotation.z = Math.PI/2; bolt.position.set(side*0.525, by, bz); bucketJoint.add(bolt);
+      }
+    }
+    for (const [hz, hy, hrx] of [[-0.14,-0.87,0.05],[-0.32,-0.84,0.35],[-0.49,-0.74,0.68],[-0.63,-0.58,1.02],[-0.72,-0.38,1.32],[-0.74,-0.18,1.60]]) {
+      const wb = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.055, 0.13), yellowMat);
+      wb.position.set(0, hy, hz); wb.rotation.x = hrx; bucketJoint.add(wb);
+    }
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.085, 0.22), yellowMat);
+    lip.position.set(0, -0.83, 0.22); lip.castShadow = true; bucketJoint.add(lip);
+    for (let i = -2; i <= 2; i++) {
+      const ad = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.105, 0.18), yellowMat);
+      ad.position.set(i*0.195, -0.83, 0.30); bucketJoint.add(ad);
+      const lp = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.135, 8), darkMat);
+      lp.rotation.z = Math.PI/2; lp.position.set(i*0.195, -0.83, 0.32); bucketJoint.add(lp);
+      const tG = new THREE.ConeGeometry(0.072, 0.32, 4); tG.rotateX(Math.PI/2); tG.rotateZ(Math.PI/4); tG.scale(1.0, 0.68, 1.0);
+      const t = new THREE.Mesh(tG, toothYellowMat); t.position.set(i*0.195, -0.84, 0.46); t.castShadow = true; bucketJoint.add(t);
+    }
+    const teethAnchor = new THREE.Object3D(); teethAnchor.position.set(0, -0.85, 0.56); bucketJoint.add(teethAnchor);
+    const bucketSoil = new THREE.Mesh(new THREE.DodecahedronGeometry(0.40, 2), new THREE.MeshStandardMaterial({ map: soilTex, roughness: 0.95 }));
+    bucketSoil.position.set(0, -0.46, -0.18); bucketSoil.scale.set(0.001, 0.001, 0.001); bucketJoint.add(bucketSoil);
+
+    // --- 6. DUMP TRUCK ---
+    const truckRoot = new THREE.Group();
+    truckRoot.position.set(7.5, 0, -4.5); truckRoot.rotation.y = -Math.PI / 4;
+    scene.add(truckRoot);
+    const tChassis = new THREE.Mesh(new THREE.BoxGeometry(2.1,0.45,7.2), darkMat); tChassis.position.y = 0.95; truckRoot.add(tChassis);
+    const tCab = new THREE.Mesh(new THREE.BoxGeometry(2.3,1.8,2.2), new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.35 }));
+    tCab.position.set(0,2.1,-2.4); tCab.castShadow = true; truckRoot.add(tCab);
+    const dumpBed = new THREE.Group(); dumpBed.position.set(0,1.35,3.2); truckRoot.add(dumpBed);
+    const bedFloor = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.25,4.8), gunMat); bedFloor.position.set(0,0.125,-2.4); dumpBed.add(bedFloor);
+    const bedL = new THREE.Mesh(new THREE.BoxGeometry(0.15,1.1,4.8), gunMat); bedL.position.set(-1.15,0.7,-2.4); dumpBed.add(bedL);
+    const bedR = new THREE.Mesh(new THREE.BoxGeometry(0.15,1.1,4.8), gunMat); bedR.position.set(1.15,0.7,-2.4); dumpBed.add(bedR);
+    const truckSoil = new THREE.Mesh(new THREE.BoxGeometry(2.1,0.9,4.4), new THREE.MeshStandardMaterial({ map: soilTex, roughness: 0.95 }));
+    truckSoil.position.set(0,0.7,-2.4); truckSoil.scale.set(1,0.001,1); dumpBed.add(truckSoil);
+
+    // --- 7. SIMULATION STATE & INPUT BINDINGS ---
+    const inputs = { leftTrack: 0, rightTrack: 0, boom: 0, bucket: 0, arm: 0, cabinSlew: 0 };
+    const sim = { boom: 0.35, arm: -1.05, bucket: -0.35, cabin: 0, heading: 0, pos: new THREE.Vector3(0,0,3.5), fillKg: 0, truckKg: 0 };
+    const camModes = ['chase','cabin','bucket','overhead'];
+    const themes = ['day', 'sunset', 'night'];
+    let camIdx = 0, camYawOffset = 0, smoothedCamYaw = 0, themeIdx = 0;
+
+    // Independent Pointer Capture for True 4-Finger Simultaneous Multi-Touch
+    function bindJoystick(elId, nubId, onMove) {
+      const el = document.getElementById(elId), nub = document.getElementById(nubId);
+      let activePid = null;
+      const move = (cx, cy) => {
+        const r = el.getBoundingClientRect(), maxR = r.width/2;
+        let dx = cx - (r.left + maxR), dy = cy - (r.top + maxR);
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxR) { dx = (dx/dist)*maxR; dy = (dy/dist)*maxR; }
+        nub.style.transform = `translate(${dx}px, ${dy}px)`;
+        onMove(dx/maxR, dy/maxR);
+      };
+      const end = (pid) => {
+        if (activePid !== pid) return;
+        activePid = null;
+        try { if (el.hasPointerCapture(pid)) el.releasePointerCapture(pid); } catch {}
+        nub.style.transform = 'translate(0,0)';
+        onMove(0,0);
+      };
+      el.addEventListener('pointerdown', e => {
+        e.preventDefault(); initAudio();
+        if (activePid !== null) return;
+        activePid = e.pointerId;
+        try { el.setPointerCapture(e.pointerId); } catch {}
+        move(e.clientX, e.clientY);
+      });
+      el.addEventListener('pointermove', e => {
+        if (activePid !== e.pointerId) return;
+        e.preventDefault();
+        move(e.clientX, e.clientY);
+      });
+      el.addEventListener('pointerup', e => end(e.pointerId));
+      el.addEventListener('pointercancel', e => end(e.pointerId));
+      el.addEventListener('lostpointercapture', e => end(e.pointerId));
+    }
+
+    function bindLever(slotId, handleId, onVal) {
+      const slot = document.getElementById(slotId), handle = document.getElementById(handleId);
+      let activePid = null;
+      const move = (cy) => {
+        const r = slot.getBoundingClientRect(), maxT = r.height/2 - 18;
+        const dy = Math.max(-maxT, Math.min(maxT, cy - (r.top + r.height/2)));
+        handle.style.transform = `translateY(${dy}px)`;
+        const v = -dy / maxT;
+        onVal(Math.abs(v) > 0.08 ? v : 0);
+      };
+      const end = (pid) => {
+        if (activePid !== pid) return;
+        activePid = null;
+        try { if (slot.hasPointerCapture(pid)) slot.releasePointerCapture(pid); } catch {}
+        handle.style.transform = 'translateY(0)';
+        onVal(0);
+      };
+      slot.addEventListener('pointerdown', e => {
+        e.preventDefault(); initAudio();
+        if (activePid !== null) return;
+        activePid = e.pointerId;
+        try { slot.setPointerCapture(e.pointerId); } catch {}
+        move(e.clientY);
+      });
+      slot.addEventListener('pointermove', e => {
+        if (activePid !== e.pointerId) return;
+        e.preventDefault();
+        move(e.clientY);
+      });
+      slot.addEventListener('pointerup', e => end(e.pointerId));
+      slot.addEventListener('pointercancel', e => end(e.pointerId));
+      slot.addEventListener('lostpointercapture', e => end(e.pointerId));
+    }
+
+    // --- USER CONTROL OPTIONS (PERSISTED) ---
+    const DEFAULT_PREFS = {
+      sensitivity: 1.0, size: 'sm', invertBoom: true, invertArm: true,
+      invertBucket: false, invertSlew: true, swapSticks: false, swapTracks: true,
+      showSigns: true, soundOn: true
+    };
+    let prefs = { ...DEFAULT_PREFS };
+    try { const s = localStorage.getItem('fonda_html_ctrl_prefs'); if (s) prefs = { ...DEFAULT_PREFS, ...JSON.parse(s) }; } catch {}
+
+    function applyPrefsUI() {
+      try { localStorage.setItem('fonda_html_ctrl_prefs', JSON.stringify(prefs)); } catch {}
+      document.body.classList.remove('ctrl-md', 'ctrl-lg', 'hide-signs');
+      if (prefs.size === 'md') document.body.classList.add('ctrl-md');
+      if (prefs.size === 'lg') document.body.classList.add('ctrl-lg');
+      if (!prefs.showSigns) document.body.classList.add('hide-signs');
+
+      document.getElementById('inp-sens').value = String(prefs.sensitivity);
+      document.getElementById('ui-sens-val').textContent = prefs.sensitivity.toFixed(1) + 'x';
+      document.querySelectorAll('.ctrl-size-btn').forEach(b => b.classList.toggle('active', b.dataset.size === prefs.size));
+      document.querySelectorAll('.ctrl-toggle[data-pref]').forEach(b => {
+        const on = !!prefs[b.dataset.pref];
+        b.classList.toggle('on', on);
+        b.querySelector('b').textContent = on ? 'ON' : 'OFF';
+      });
+      const sb = document.getElementById('btn-pref-sound');
+      sb.classList.toggle('on', prefs.soundOn);
+      sb.querySelector('b').textContent = prefs.soundOn ? 'ON' : 'OFF';
+      if (engineGain) engineGain.gain.value = prefs.soundOn ? 0.08 : 0;
+
+      const bb = { t: prefs.invertBoom?'▼':'▲', b: prefs.invertBoom?'▲':'▼', l: prefs.invertBucket?'▷':'◁', r: prefs.invertBucket?'◁':'▷', n: '✛' };
+      const as = { t: prefs.invertArm?'↙':'↗', b: prefs.invertArm?'↗':'↙', l: prefs.invertSlew?'⟳':'⟲', r: prefs.invertSlew?'⟲':'⟳', n: '◈' };
+      const ls = prefs.swapSticks ? as : bb;
+      const rs = prefs.swapSticks ? bb : as;
+      document.getElementById('l-sym-t').textContent = ls.t; document.getElementById('l-sym-b').textContent = ls.b;
+      document.getElementById('l-sym-l').textContent = ls.l; document.getElementById('l-sym-r').textContent = ls.r;
+      document.getElementById('left-nub').textContent = ls.n;
+      document.getElementById('r-sym-t').textContent = rs.t; document.getElementById('r-sym-b').textContent = rs.b;
+      document.getElementById('r-sym-l').textContent = rs.l; document.getElementById('r-sym-r').textContent = rs.r;
+      document.getElementById('right-nub').textContent = rs.n;
+    }
+
+    // Left Stick (respects swapSticks & invert prefs)
+    bindJoystick('left-stick', 'left-nub', (nx, ny) => {
+      if (prefs.swapSticks) {
+        inputs.cabinSlew = Math.abs(nx) > 0.12 ? (prefs.invertSlew ? -1 : 1) * nx : 0;
+        inputs.arm = Math.abs(ny) > 0.12 ? (prefs.invertArm ? -1 : 1) * ny : 0;
+      } else {
+        inputs.bucket = Math.abs(nx) > 0.12 ? (prefs.invertBucket ? -1 : 1) * nx : 0;
+        inputs.boom = Math.abs(ny) > 0.12 ? (prefs.invertBoom ? 1 : -1) * ny : 0;
+      }
+    });
+    // Right Stick (respects swapSticks & invert prefs)
+    bindJoystick('right-stick', 'right-nub', (nx, ny) => {
+      if (prefs.swapSticks) {
+        inputs.bucket = Math.abs(nx) > 0.12 ? (prefs.invertBucket ? -1 : 1) * nx : 0;
+        inputs.boom = Math.abs(ny) > 0.12 ? (prefs.invertBoom ? 1 : -1) * ny : 0;
+      } else {
+        inputs.cabinSlew = Math.abs(nx) > 0.12 ? (prefs.invertSlew ? -1 : 1) * nx : 0;
+        inputs.arm = Math.abs(ny) > 0.12 ? (prefs.invertArm ? -1 : 1) * ny : 0;
+      }
+    });
+    // Center Track Levers (respects swapTracks pref)
+    bindLever('slot-track-left-pos', 'handle-track-left-pos', v => {
+      if (prefs.swapTracks) inputs.rightTrack = v; else inputs.leftTrack = v;
+    });
+    bindLever('slot-track-right-pos', 'handle-track-right-pos', v => {
+      if (prefs.swapTracks) inputs.leftTrack = v; else inputs.rightTrack = v;
+    });
+
+    // User Control Modal Bindings
+    const ctrlModal = document.getElementById('ctrl-modal');
+    document.getElementById('btn-user-controls').onclick = () => ctrlModal.classList.toggle('open');
+    document.getElementById('btn-close-ctrl').onclick = () => ctrlModal.classList.remove('open');
+    document.getElementById('inp-sens').oninput = e => { prefs.sensitivity = Number(e.target.value); applyPrefsUI(); };
+    document.querySelectorAll('.ctrl-size-btn').forEach(b => b.onclick = () => { prefs.size = b.dataset.size; applyPrefsUI(); });
+    document.querySelectorAll('.ctrl-toggle[data-pref]').forEach(b => b.onclick = () => { prefs[b.dataset.pref] = !prefs[b.dataset.pref]; applyPrefsUI(); });
+    document.getElementById('btn-pref-sound').onclick = () => { prefs.soundOn = !prefs.soundOn; applyPrefsUI(); };
+    document.getElementById('btn-reset-machine').onclick = () => {
+      sim.boom = 0.35; sim.arm = -1.05; sim.bucket = -0.35; sim.cabin = 0; sim.heading = 0;
+      sim.pos.set(0,0,3.5); camYawOffset = 0; ctrlModal.classList.remove('open');
+    };
+    document.getElementById('btn-reset-prefs').onclick = () => { prefs = { ...DEFAULT_PREFS }; applyPrefsUI(); };
+    applyPrefsUI();
+
+    // --- INTEGRATED OWNER CONTROL PANEL (LIVE API + OFFLINE FALLBACK) ---
+    const ownerModal = document.getElementById('owner-modal');
+    const ownerLoginView = document.getElementById('owner-login-view');
+    const ownerDashView = document.getElementById('owner-dash-view');
+    const ownerConnBadge = document.getElementById('owner-conn-badge');
+    const ownerApiInp = document.getElementById('owner-api-base');
+    const ownerPinInp = document.getElementById('owner-pin-inp');
+    const ownerErrEl = document.getElementById('owner-login-err');
+    const DEFAULT_REMOTE_API = 'https://ais-pre-5dgetyoaqavkwgo5pas3rg-203603360783.asia-northeast1.run.app';
+    let ownerAuthed = false, ownerPin = 'fonda2026', useLocalFallback = false;
+
+    const getApiBase = () => {
+      const custom = (ownerApiInp.value || '').trim().replace(/\/+$/, '');
+      if (custom) return custom;
+      return window.location.protocol.startsWith('http') ? '' : DEFAULT_REMOTE_API;
+    };
+    if (!window.location.protocol.startsWith('http')) {
+      ownerApiInp.value = DEFAULT_REMOTE_API;
+    }
+
+    const htmlDeviceId = (() => {
+      let id = localStorage.getItem('fonda_html_device_id');
+      if (!id) {
+        id = 'FONDA-HTML-' + Math.random().toString(16).slice(2, 8).toUpperCase();
+        try { localStorage.setItem('fonda_html_device_id', id); } catch {}
+      }
+      return id;
+    })();
+
+    const loadLocalOwnerDb = () => {
+      try {
+        const raw = localStorage.getItem('fonda_html_owner_db');
+        if (raw) return JSON.parse(raw);
+      } catch {}
+      const initDb = {
+        settings: { whatsappNumber: '+6583951544', maxOfflineDays: 7 },
+        users: {
+          [htmlDeviceId]: {
+            deviceId: htmlDeviceId, deviceModel: 'HTML5 Browser Device',
+            status: 'approved', registeredAt: Date.now(), lastActiveAt: Date.now(),
+            offlineTokenExpiresAt: Date.now() + 7 * 86400000, totalSoilDumpedKg: 0
+          }
+        },
+        activityLogs: [{ id: 'l1', timestamp: Date.now(), deviceId: htmlDeviceId, action: 'HTML Ready', details: 'Standalone HTML Owner Panel initialized' }]
+      };
+      try { localStorage.setItem('fonda_html_owner_db', JSON.stringify(initDb)); } catch {}
+      return initDb;
+    };
+    const saveLocalOwnerDb = (d) => { try { localStorage.setItem('fonda_html_owner_db', JSON.stringify(d)); } catch {} };
+
+    function renderOwnerDashboard(data, isOffline) {
+      useLocalFallback = isOffline;
+      ownerConnBadge.textContent = isOffline ? 'Local Storage' : 'Live Server';
+      ownerConnBadge.style.color = isOffline ? '#fcd34d' : '#6ee7b7';
+
+      const users = data.users || [];
+      const stats = data.stats || {
+        totalUsers: users.length,
+        approvedCount: users.filter(u => u.status === 'approved').length,
+        pendingCount: users.filter(u => u.status === 'pending').length,
+        totalSoilDumpedTons: Math.round(users.reduce((a, u) => a + (u.totalSoilDumpedKg || 0), 0) / 1000)
+      };
+
+      document.getElementById('own-st-total').textContent = stats.totalUsers ?? users.length;
+      document.getElementById('own-st-app').textContent = stats.approvedCount ?? 0;
+      document.getElementById('own-st-pend').textContent = stats.pendingCount ?? 0;
+      document.getElementById('own-st-soil').textContent = (stats.totalSoilDumpedTons ?? 0) + 't';
+      document.getElementById('own-user-count').textContent = users.length;
+
+      if (data.settings?.whatsappNumber) {
+        document.getElementById('own-wa-inp').value = data.settings.whatsappNumber;
+        document.getElementById('own-wa-test').href = 'https://wa.me/' + data.settings.whatsappNumber.replace(/[^0-9]/g, '');
+      }
+      if (data.settings?.maxOfflineDays) {
+        document.getElementById('own-days-sel').value = String(data.settings.maxOfflineDays);
+      }
+
+      const tbody = document.getElementById('own-users-tbody');
+      tbody.innerHTML = '';
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        const stCls = u.status === 'approved' ? 'st-approved' : u.status === 'blocked' ? 'st-blocked' : 'st-pending';
+        const hrs = u.offlineTokenExpiresAt ? Math.max(0, Math.round((u.offlineTokenExpiresAt - Date.now()) / 3600000)) + 'h' : '—';
+        tr.innerHTML = `
+          <td style="font-family:monospace;font-weight:800;color:#fbbf24;"></td>
+          <td style="color:#cbd5e1;"></td>
+          <td><span class="st-pill ${stCls}">${u.status}</span></td>
+          <td style="color:#94a3b8;">${hrs}</td>
+          <td style="text-align:right;">
+            ${u.status !== 'approved' ? '<button class="act-btn act-app" data-act="approve">Approve</button>' : ''}
+            ${u.status !== 'blocked' ? '<button class="act-btn act-blk" data-act="block">Block</button>' : ''}
+            <button class="act-btn act-del" data-act="delete">Del</button>
+          </td>`;
+        tr.children[0].textContent = u.deviceId;
+        tr.children[1].textContent = u.deviceModel || 'Device';
+        tr.querySelectorAll('.act-btn').forEach(btn => {
+          btn.onclick = () => runOwnerUserAction(u.deviceId, btn.dataset.act);
+        });
+        tbody.appendChild(tr);
+      });
+
+      const logsBox = document.getElementById('own-logs-box');
+      logsBox.innerHTML = '';
+      (data.activityLogs || []).slice(0, 20).forEach(l => {
+        const div = document.createElement('div');
+        div.className = 'log-row';
+        const left = document.createElement('span');
+        left.innerHTML = `<b style="color:#fbbf24;font-family:monospace;"></b> <b></b> `;
+        left.children[0].textContent = l.deviceId || '';
+        left.children[1].textContent = (l.action || '') + ':';
+        left.appendChild(document.createTextNode(l.details || ''));
+        const tm = document.createElement('span');
+        tm.style.color = '#94a3b8';
+        tm.textContent = new Date(l.timestamp).toLocaleTimeString();
+        div.appendChild(left); div.appendChild(tm);
+        logsBox.appendChild(div);
+      });
+    }
+
+    async function fetchOwnerDashboard() {
+      const base = getApiBase();
+      try {
+        await fetch(base + '/api/auth/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId: htmlDeviceId, deviceModel: 'FONDA HTML5 Browser' })
+        }).catch(() => {});
+        const res = await fetch(base + '/api/owner/data', { headers: { Authorization: 'Bearer ' + ownerPin } });
+        if (res.ok) {
+          const data = await res.json();
+          renderOwnerDashboard(data, false);
+          return;
+        }
+      } catch {}
+      const ldb = loadLocalOwnerDb();
+      renderOwnerDashboard({ settings: ldb.settings, users: Object.values(ldb.users), activityLogs: ldb.activityLogs }, true);
+    }
+
+    async function runOwnerUserAction(deviceId, action) {
+      if (!useLocalFallback) {
+        try {
+          const res = await fetch(getApiBase() + '/api/owner/users/' + encodeURIComponent(deviceId) + '/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + ownerPin },
+            body: JSON.stringify({ action })
+          });
+          if (res.ok) { await fetchOwnerDashboard(); return; }
+        } catch {}
+      }
+      const ldb = loadLocalOwnerDb();
+      if (action === 'delete') delete ldb.users[deviceId];
+      else if (ldb.users[deviceId]) {
+        ldb.users[deviceId].status = action === 'approve' ? 'approved' : 'blocked';
+        if (action === 'approve') ldb.users[deviceId].offlineTokenExpiresAt = Date.now() + (ldb.settings.maxOfflineDays || 7) * 86400000;
+      }
+      ldb.activityLogs.unshift({ id: 'l-' + Date.now(), timestamp: Date.now(), deviceId, action: 'User ' + action, details: 'Local Owner action' });
+      saveLocalOwnerDb(ldb);
+      fetchOwnerDashboard();
+    }
+
+    const openOwnerModal = () => {
+      ctrlModal.classList.remove('open');
+      ownerModal.classList.add('open');
+      if (ownerAuthed) {
+        ownerLoginView.style.display = 'none';
+        ownerDashView.style.display = 'flex';
+        fetchOwnerDashboard();
+      } else {
+        ownerLoginView.style.display = 'flex';
+        ownerDashView.style.display = 'none';
+      }
+    };
+
+    document.getElementById('btn-owner-panel').onclick = openOwnerModal;
+    document.getElementById('btn-open-owner-from-ctrl').onclick = openOwnerModal;
+    document.getElementById('btn-close-owner').onclick = () => ownerModal.classList.remove('open');
+
+    document.getElementById('btn-owner-login').onclick = async () => {
+      ownerErrEl.style.display = 'none';
+      ownerPin = (ownerPinInp.value || '').trim();
+      const base = getApiBase();
+      let ok = false;
+      try {
+        const res = await fetch(base + '/api/owner/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: ownerPin })
+        });
+        const d = await res.json();
+        if (d.success) ok = true;
+        else { ownerErrEl.textContent = d.error || 'Invalid Owner PIN'; ownerErrEl.style.display = 'block'; return; }
+      } catch {
+        if (ownerPin === 'fonda2026') ok = true;
+        else { ownerErrEl.textContent = 'Incorrect PIN (Offline default: fonda2026)'; ownerErrEl.style.display = 'block'; return; }
+      }
+      if (ok) {
+        ownerAuthed = true;
+        ownerLoginView.style.display = 'none';
+        ownerDashView.style.display = 'flex';
+        fetchOwnerDashboard();
+      }
+    };
+
+    document.getElementById('btn-own-refresh').onclick = fetchOwnerDashboard;
+    document.getElementById('btn-own-save').onclick = async () => {
+      const wa = document.getElementById('own-wa-inp').value.trim();
+      const days = Number(document.getElementById('own-days-sel').value) || 7;
+      document.getElementById('own-wa-test').href = 'https://wa.me/' + wa.replace(/[^0-9]/g, '');
+      if (!useLocalFallback) {
+        try {
+          const res = await fetch(getApiBase() + '/api/owner/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + ownerPin },
+            body: JSON.stringify({ whatsappNumber: wa, maxOfflineDays: days })
+          });
+          if (res.ok) {
+            document.getElementById('own-save-msg').textContent = 'Saved to Server ✓';
+            setTimeout(() => document.getElementById('own-save-msg').textContent = '', 2500);
+            return;
+          }
+        } catch {}
+      }
+      const ldb = loadLocalOwnerDb();
+      ldb.settings.whatsappNumber = wa; ldb.settings.maxOfflineDays = days;
+      saveLocalOwnerDb(ldb);
+      document.getElementById('own-save-msg').textContent = 'Saved Locally ✓';
+      setTimeout(() => document.getElementById('own-save-msg').textContent = '', 2500);
+    };
+
+    document.getElementById('btn-own-add-dev').onclick = async () => {
+      const devId = document.getElementById('own-add-id').value.trim();
+      if (!devId) return;
+      document.getElementById('own-add-id').value = '';
+      if (!useLocalFallback) {
+        try {
+          await fetch(getApiBase() + '/api/auth/register', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId: devId, deviceModel: 'Manual Device' })
+          });
+          await fetchOwnerDashboard();
+          return;
+        } catch {}
+      }
+      const ldb = loadLocalOwnerDb();
+      ldb.users[devId] = { deviceId: devId, deviceModel: 'Manual Device', status: 'pending', registeredAt: Date.now(), lastActiveAt: Date.now() };
+      saveLocalOwnerDb(ldb);
+      fetchOwnerDashboard();
+    };
+
+    // Camera Rotation Buttons (NO screen touch-drag orbit)
+    document.getElementById('btn-cam-left').onclick = () => camYawOffset -= Math.PI / 4;
+    document.getElementById('btn-cam-right').onclick = () => camYawOffset += Math.PI / 4;
+    document.getElementById('btn-cam-mode').onclick = () => {
+      camIdx = (camIdx + 1) % camModes.length;
+      if (camModes[camIdx] === 'chase') camYawOffset = 0;
+    };
+    document.getElementById('btn-day-night').onclick = () => {
+      themeIdx = (themeIdx + 1) % themes.length;
+      const t = themes[themeIdx];
+      if (t === 'night') {
+        skyUniforms.topColor.value.setHex(0x284166);
+        skyUniforms.bottomColor.value.setHex(0x54739e);
+        scene.background.setHex(0x45608a);
+        scene.fog.color.setHex(0x45608a);
+        hemiLight.intensity = 1.05;
+        sunLight.intensity = 1.55;
+        sunLight.color.setHex(0xbfdbfe);
+        fillLight.intensity = 0.68;
+        document.getElementById('btn-day-night').textContent = '🌙';
+      } else if (t === 'sunset') {
+        skyUniforms.topColor.value.setHex(0x3b4d7b);
+        skyUniforms.bottomColor.value.setHex(0xf59e0b);
+        scene.background.setHex(0xd99b66);
+        scene.fog.color.setHex(0xd99b66);
+        hemiLight.intensity = 1.15;
+        sunLight.intensity = 2.1;
+        sunLight.color.setHex(0xfdba74);
+        fillLight.intensity = 0.65;
+        document.getElementById('btn-day-night').textContent = '🌇';
+      } else {
+        skyUniforms.topColor.value.setHex(0x5b9fe8);
+        skyUniforms.bottomColor.value.setHex(0xdbeafe);
+        scene.background.setHex(0xdbeafe);
+        scene.fog.color.setHex(0xdbeafe);
+        hemiLight.intensity = 1.45;
+        sunLight.intensity = 2.6;
+        sunLight.color.setHex(0xfffbeb);
+        fillLight.intensity = 0.78;
+        document.getElementById('btn-day-night').textContent = '☀️';
+      }
+    };
+    document.getElementById('btn-toggle-hud').onclick = () => {
+      const row = document.getElementById('controls-row');
+      const hidden = row.style.display === 'none';
+      row.style.display = hidden ? 'flex' : 'none';
+      document.getElementById('btn-toggle-hud').textContent = hidden ? '▾' : '▴';
+    };
+
+    // Keyboard Fallback
+    window.addEventListener('keydown', e => {
+      const k = e.key.toLowerCase();
+      if (k==='w') inputs.boom=-1; if (k==='s') inputs.boom=1;
+      if (k==='a') inputs.bucket=-1; if (k==='d') inputs.bucket=1;
+      if (k==='i') inputs.arm=1; if (k==='k') inputs.arm=-1;
+      if (k==='j') inputs.cabinSlew=1; if (k==='l') inputs.cabinSlew=-1;
+      if (k==='r') inputs.leftTrack=1; if (k==='f') inputs.leftTrack=-1;
+      if (k==='t') inputs.rightTrack=1; if (k==='g') inputs.rightTrack=-1;
+      if (k==='q') camYawOffset -= Math.PI/4; if (k==='e') camYawOffset += Math.PI/4;
+    });
+    window.addEventListener('keyup', e => {
+      const k = e.key.toLowerCase();
+      if (k==='w'||k==='s') inputs.boom=0; if (k==='a'||k==='d') inputs.bucket=0;
+      if (k==='i'||k==='k') inputs.arm=0; if (k==='j'||k==='l') inputs.cabinSlew=0;
+      if (k==='r'||k==='f') inputs.leftTrack=0; if (k==='t'||k==='g') inputs.rightTrack=0;
+    });
+
+    // --- 8. MAIN GAME LOOP ---
+    if (!isSoftwareGl) renderer.compile(scene, camera);
+
+    const clock = new THREE.Clock();
+    const _tp = new THREE.Vector3(), _tb = new THREE.Vector3(), _ct = new THREE.Vector3(), _cd = new THREE.Vector3();
+
+    function afterDraw(cb) {
+      const gl = renderer.getContext();
+      const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+      gl.flush();
+      const poll = () => {
+        const st = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
+        if (st === gl.UNSIGNALED) { setTimeout(poll, 5); }
+        else { if (sync) gl.deleteSync(sync); setTimeout(cb, 80); }
+      };
+      setTimeout(poll, 5);
+    }
+
+    function animate() {
+      const dt = Math.min(clock.getDelta(), 0.1);
+      const sens = prefs.sensitivity || 1.0;
+
+      const drive = (inputs.leftTrack + inputs.rightTrack) / 2;
+      const steer = (inputs.leftTrack - inputs.rightTrack) / 2;
+      if (Math.abs(drive) > 0.05) {
+        sim.pos.x += Math.sin(sim.heading) * drive * 3.8 * sens * dt;
+        sim.pos.z += Math.cos(sim.heading) * drive * 3.8 * sens * dt;
+      }
+      if (Math.abs(steer) > 0.05) sim.heading += steer * 1.4 * sens * dt;
+
+      excRoot.position.copy(sim.pos);
+      undercarriage.rotation.y = sim.heading;
+
+      sim.cabin += inputs.cabinSlew * 1.35 * sens * dt;
+      cabinUpper.rotation.y = sim.cabin;
+
+      sim.boom = THREE.MathUtils.clamp(sim.boom + inputs.boom * 0.85 * sens * dt, -0.2, 1.15);
+      boomJoint.rotation.x = sim.boom;
+
+      sim.arm = THREE.MathUtils.clamp(sim.arm + inputs.arm * 0.95 * sens * dt, -2.1, -0.35);
+      armJoint.rotation.x = sim.arm;
+
+      sim.bucket = THREE.MathUtils.clamp(sim.bucket - inputs.bucket * 1.25 * sens * dt, -1.65, 1.35);
+      bucketJoint.rotation.x = sim.bucket;
+
+      boomCyl.scale.z = 0.88 + ((sim.boom + 0.2) / 1.35) * 0.35;
+      armCyl.scale.z = 0.82 + ((sim.arm + 2.1) / 1.75) * 0.42;
+      bCyl.scale.z = 0.78 + ((1.35 - sim.bucket) / 3.0) * 0.48;
+
+      // Digging & Dumping
+      teethAnchor.getWorldPosition(_tp);
+      const digging = _tp.y <= 0.15 && _tp.y >= -4.5 && (inputs.bucket > 0.1 || inputs.arm > 0.1) && sim.fillKg < 1200;
+      if (digging) {
+        sim.fillKg = Math.min(1200, sim.fillKg + dt * 450);
+        deformGround(_tp.x, _tp.z, dt * 0.18);
+      }
+      const fr = sim.fillKg / 1200;
+      bucketSoil.visible = fr > 0.02;
+      if (bucketSoil.visible) { const s = 0.2 + fr * 0.85; bucketSoil.scale.set(s, s*0.9, s); }
+
+      const dumping = sim.bucket > 0.25 && sim.fillKg > 0;
+      if (dumping) {
+        const amt = Math.min(sim.fillKg, dt * 550);
+        sim.fillKg -= amt;
+        dumpBed.getWorldPosition(_tb);
+        if (Math.hypot(_tp.x - _tb.x, _tp.z - _tb.z) < 3.2 && _tp.y > _tb.y) {
+          sim.truckKg = Math.min(15000, sim.truckKg + amt);
+          truckSoil.scale.set(1, Math.max(0.001, (sim.truckKg / 15000) * 1.3), 1);
+        }
+      }
+
+      document.getElementById('ui-bucket').textContent = Math.round(fr * 100) + '%';
+      document.getElementById('ui-truck').textContent = Math.round((sim.truckKg / 15000) * 100) + '%';
+      const stEl = document.getElementById('ui-status');
+      if (digging) { stEl.style.display = 'block'; stEl.className = 'status-pill'; }
+      else if (dumping) { stEl.style.display = 'block'; stEl.className = 'status-pill dump'; }
+      else { stEl.style.display = 'none'; }
+
+      if (engineOsc) {
+        const load = Math.abs(drive) + Math.abs(steer) + Math.abs(inputs.boom) + Math.abs(inputs.arm) + Math.abs(inputs.cabinSlew) > 0.1;
+        engineOsc.frequency.setTargetAtTime(load ? 56 : 34, audioCtx.currentTime, 0.12);
+      }
+
+      // Camera system (Button-rotated + Landscape Adaptive Framing)
+      smoothedCamYaw = THREE.MathUtils.damp(smoothedCamYaw, camYawOffset, 8, dt);
+      const yaw = sim.heading + sim.cabin + smoothedCamYaw;
+      const mode = camModes[camIdx];
+      const isWide = camera.aspect > 1.55;
+      if (mode === 'cabin') {
+        cab.getWorldPosition(_ct);
+        camera.position.set(_ct.x, _ct.y + 1.28, _ct.z);
+        camera.lookAt(_ct.x - Math.sin(yaw)*12, _ct.y - 0.3, _ct.z - Math.cos(yaw)*12);
+      } else if (mode === 'bucket') {
+        camera.position.lerp(_cd.set(_tp.x + Math.sin(yaw)*4.2, _tp.y + 2.2, _tp.z + Math.cos(yaw)*4.2), 0.12);
+        camera.lookAt(_tp);
+      } else if (mode === 'overhead') {
+        camera.position.set(sim.pos.x + Math.sin(smoothedCamYaw)*20, 30, sim.pos.z + Math.cos(smoothedCamYaw)*20);
+        camera.lookAt(sim.pos.x, 0, sim.pos.z - 3);
+      } else {
+        const cDist = isWide ? 11.8 : 12.8;
+        _ct.set(sim.pos.x, sim.pos.y + 1.65, sim.pos.z - 0.6);
+        _cd.set(sim.pos.x + Math.sin(yaw)*cDist, sim.pos.y + 5.2, sim.pos.z + Math.cos(yaw)*cDist);
+        camera.position.lerp(_cd, 0.1);
+        camera.lookAt(_ct);
+      }
+
+      renderer.render(scene, camera);
+      if (isSoftwareGl) afterDraw(animate);
+      else requestAnimationFrame(animate);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      const asp = window.innerWidth / Math.max(window.innerHeight, 1);
+      camera.aspect = asp;
+      camera.fov = asp > 1.65 ? 46 : 50;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
